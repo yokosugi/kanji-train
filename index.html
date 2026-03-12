@@ -2376,7 +2376,21 @@ function newCard(sentence, answer, t){
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // DRILL
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-function startTodayDrill(){
+async function startTodayDrill(){
+  // JSONがまだ読み込まれていなければ待つ
+  if(Object.keys(KANJI_ROUNDS).length === 0){
+    await loadKanjiRounds();
+  }
+  // DBにカードがなければKANJI_ROUNDSから全問登録
+  if(DB.cards.length === 0){
+    const t = today();
+    Object.values(KANJI_ROUNDS).forEach(round => {
+      round.forEach(q => {
+        DB.cards.push(newCard(q.sentence, q.answer, t));
+      });
+    });
+    saveDB();
+  }
   const t = today();
   let queue = DB.cards.filter(c=>c.nextReview<=t);
   if(queue.length===0){ alert('今日の問題はありません！\nよく頑張りました 🎉'); return; }
@@ -2895,7 +2909,10 @@ function setTokkunCount(n, updateBtn=true){
   }
 }
 
-function startTokkunDrill(){
+async function startTokkunDrill(){
+  if(Object.keys(KANJI_ROUNDS).length === 0){
+    await loadKanjiRounds();
+  }
   if(!tokkunState.selectedId){
     alert('練習する範囲を選んでください。');
     return;
@@ -2932,7 +2949,8 @@ function startTokkunDrill(){
   // 特訓モードフラグをセットしてドリル開始
   session = { queue, idx:0, results:[], isTokkunMode:true };
   showScreen('drill');
-  loadQuestion();
+  initCanvas();
+  showQuestion();
 }
 
 function confirmReset(){
