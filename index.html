@@ -2352,6 +2352,56 @@ function showParsedPreview(questions){
   `;
 }
 
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// SETUP（問題登録）
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+let selectedRoundGroupId = null;
+
+function buildSetupRoundList(){
+  const list = document.getElementById('roundGroupList');
+  if(!list) return;
+  list.innerHTML = '';
+  ROUND_GROUPS.forEach(g => {
+    const btn = document.createElement('button');
+    btn.className = 'tok-cnt' + (selectedRoundGroupId===g.id ? ' active' : '');
+    btn.textContent = g.label;
+    btn.onclick = () => {
+      selectedRoundGroupId = g.id;
+      document.querySelectorAll('#roundGroupList .tok-cnt').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      const regBtn = document.getElementById('registerRoundBtn');
+      regBtn.disabled = false;
+      regBtn.style.opacity = '1';
+      regBtn.style.cursor = 'pointer';
+      document.getElementById('roundRegisterStatus').textContent = '';
+    };
+    list.appendChild(btn);
+  });
+}
+
+function registerRoundGroup(){
+  if(!selectedRoundGroupId){ alert('範囲を選んでください'); return; }
+  const group = ROUND_GROUPS.find(g=>g.id===selectedRoundGroupId);
+  if(!group) return;
+  const t = today();
+  let added = 0;
+  group.rounds.forEach(r => {
+    (KANJI_ROUNDS[r]||[]).forEach(q => {
+      if(DB.cards.find(c=>c.sentence===q.sentence)) return;
+      DB.cards.push(newCard(q.sentence, q.answer, t));
+      added++;
+    });
+  });
+  saveDB();
+  updateHome();
+  const status = document.getElementById('roundRegisterStatus');
+  if(added > 0){
+    status.textContent = `✅ ${added}問を登録しました！`;
+  } else {
+    status.textContent = '（すでに登録済みです）';
+  }
+}
+
 function saveQuestions(){
   const t = today();
   let added = 0;
@@ -2407,10 +2457,6 @@ function newCard(sentence, answer, t){
 // DRILL
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 async function startTodayDrill(){
-  // JSONがまだ読み込まれていなければ待つ
-  if(Object.keys(KANJI_ROUNDS).length === 0){
-    await loadKanjiRounds();
-  }
   // DBにカードがなければKANJI_ROUNDSから全問登録
   if(DB.cards.length === 0){
     const t = today();
@@ -2419,7 +2465,7 @@ async function startTodayDrill(){
         DB.cards.push(newCard(q.sentence, q.answer, t));
       });
     });
-    saveDB();
+    await saveDB();
   }
   const t = today();
   let queue = DB.cards.filter(c=>c.nextReview<=t);
@@ -2821,7 +2867,7 @@ function buildSchedule(){
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 function initCanvas(){
   canvas = document.getElementById('drawCanvas');
-  ctx = canvas.getContext('2d');
+  if(!canvas) return; // キャンバスなし（ノートモード）
   const dpr = window.devicePixelRatio||1;
   const w = canvas.offsetWidth;
   const h = canvas.offsetHeight;
@@ -2880,6 +2926,7 @@ function showScreen(name){
   if(name==='tokkun') buildTokkunMenu();
   if(name==='ranking') buildRanking();
   if(name==='editor') buildEditorScreen();
+  if(name==='setup') buildSetupRoundList();
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
