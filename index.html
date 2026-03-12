@@ -1050,6 +1050,7 @@ textarea.manual-input::placeholder { color:var(--text-dim); }
     <button class="btn-mid" onclick="showScreen('mapview')">🗾 旅路マップを見る</button>
     <button class="btn-mid" onclick="showScreen('schedule')">📅 学習スケジュール</button>
     <button class="btn-mid" onclick="showScreen('setup')">📄 問題PDFを登録</button>
+    <button class="btn-mid" onclick="showScreen('editor')">✏️ 問題を編集する</button>
     <button class="btn-danger" onclick="confirmReset()">データをリセット</button>
     <button id="logoutBtn" class="btn-mid" style="border-color:var(--border);color:var(--text-muted);display:none;" onclick="doLogout()">ログアウト</button>
   </div>
@@ -1061,13 +1062,20 @@ textarea.manual-input::placeholder { color:var(--text-dim); }
     <div class="back-btn" onclick="showScreen('home')">←</div>
     <div class="screen-title">⚡ 特訓モード</div>
   </div>
-  <div style="max-width:480px;width:100%;padding:0 16px 40px;display:flex;flex-direction:column;gap:12px;">
-    <p style="color:var(--text-muted);font-size:13px;margin-bottom:4px;">練習したい範囲を選んでください。エビングハウス関係なく今すぐ練習できます。</p>
+  <div style="max-width:480px;width:100%;padding:0 16px 40px;display:flex;flex-direction:column;gap:16px;">
+    <p style="color:var(--text-muted);font-size:13px;">エビングハウス関係なく、今すぐ練習できます。</p>
 
-    <div style="display:flex;flex-direction:column;gap:8px;" id="tokkunGroupList"></div>
+    <!-- 範囲選択＋スタートボタン横並び -->
+    <div style="display:flex;gap:10px;align-items:stretch;">
+      <select id="tokkunGroupSelect" style="flex:1;padding:14px 12px;border-radius:14px;border:1.5px solid var(--border);background:var(--surface);color:var(--text);font-size:15px;font-family:'Nunito',sans-serif;font-weight:700;outline:none;cursor:pointer;box-shadow:var(--shadow-sm);">
+        <option value="">範囲を選んでください</option>
+      </select>
+      <button onclick="startTokkunDrill()" style="flex-shrink:0;padding:14px 20px;background:linear-gradient(135deg,#7b2d8b,#4361ee);color:#fff;border:none;border-radius:14px;font-family:'Nunito',sans-serif;font-size:15px;font-weight:800;cursor:pointer;box-shadow:0 4px 15px rgba(123,45,139,.25);white-space:nowrap;">⚡ スタート！</button>
+    </div>
 
-    <div style="margin-top:16px;background:var(--surface2);border-radius:12px;padding:16px;">
-      <div style="font-size:13px;color:var(--text-muted);margin-bottom:10px;">問題数を選ぶ</div>
+    <!-- 問題数 -->
+    <div style="background:var(--surface);border-radius:14px;padding:16px;border:1.5px solid var(--border);box-shadow:var(--shadow-sm);">
+      <div style="font-size:12px;color:var(--text-muted);margin-bottom:10px;font-weight:700;">問題数</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;" id="tokkunCountBtns">
         <button class="tok-cnt active" data-n="10" onclick="setTokkunCount(10)">10問</button>
         <button class="tok-cnt" data-n="25" onclick="setTokkunCount(25)">25問</button>
@@ -1075,8 +1083,6 @@ textarea.manual-input::placeholder { color:var(--text-dim); }
         <button class="tok-cnt" data-n="100" onclick="setTokkunCount(100)">100問</button>
       </div>
     </div>
-
-    <button class="btn-big" style="margin-top:8px;" onclick="startTokkunDrill()">⚡ 特訓スタート！</button>
   </div>
 </div>
 
@@ -1151,19 +1157,8 @@ textarea.manual-input::placeholder { color:var(--text-dim); }
       <div class="q-sentence" id="qSentence">読み込み中…</div>
     </div>
 
-    <div class="canvas-card">
-      <div class="canvas-label">
-        <span>ここに答えを手書きしてください</span>
-      </div>
-      <canvas id="drawCanvas"></canvas>
-      <div class="canvas-tools">
-        <div class="pen-btns">
-          <button class="pen-btn active" id="ps-sm" onclick="setPen(3,'sm')">細</button>
-          <button class="pen-btn" id="ps-md" onclick="setPen(6,'md')">中</button>
-          <button class="pen-btn" id="ps-lg" onclick="setPen(12,'lg')">太</button>
-        </div>
-        <button class="clear-btn" onclick="clearCanvas()">消す ✕</button>
-      </div>
+    <div style="width:100%;background:var(--surface);border:1.5px dashed var(--border);border-radius:16px;padding:20px;text-align:center;color:var(--text-muted);font-size:14px;font-weight:600;">
+      ✏️ ノートに答えを書いてから「答えを確認する」を押してください
     </div>
 
     <div class="submit-area">
@@ -1232,6 +1227,45 @@ textarea.manual-input::placeholder { color:var(--text-dim); }
   </div>
 </div>
 
+<!-- ━━━━━ EDITOR ━━━━━ -->
+<div id="editor" class="screen">
+  <div class="screen-header" style="max-width:600px;width:100%;">
+    <div class="back-btn" onclick="showScreen('home')">←</div>
+    <div class="screen-title">✏️ 問題を編集する</div>
+  </div>
+  <div style="max-width:600px;width:100%;padding:0 16px 60px;display:flex;flex-direction:column;gap:12px;">
+    <!-- 回フィルター -->
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+      <select id="editorRoundFilter" onchange="buildEditorList()" style="flex:1;min-width:160px;padding:11px 12px;border-radius:12px;border:1.5px solid var(--border);background:var(--surface);color:var(--text);font-size:14px;font-family:'Nunito',sans-serif;font-weight:700;">
+        <option value="">すべての回</option>
+      </select>
+      <input id="editorSearch" type="text" placeholder="🔍 問題文・答えを検索" oninput="buildEditorList()" style="flex:2;min-width:160px;padding:11px 14px;border-radius:12px;border:1.5px solid var(--border);background:var(--surface);color:var(--text);font-size:14px;font-family:'Nunito',sans-serif;">
+    </div>
+    <div id="editorCount" style="font-size:12px;color:var(--text-muted);font-weight:600;"></div>
+    <div id="editorList" style="display:flex;flex-direction:column;gap:8px;"></div>
+  </div>
+</div>
+
+<!-- インライン編集モーダル -->
+<div class="modal-overlay" id="editModal">
+  <div class="modal" style="width:90%;max-width:480px;">
+    <h2 style="margin-bottom:4px;">問題を編集</h2>
+    <p style="font-size:12px;color:var(--text-muted);margin-bottom:14px;">カタカナ部分が穴埋め箇所になります</p>
+    <div style="margin-bottom:12px;">
+      <label style="font-size:12px;color:var(--text-muted);font-weight:700;">問題文</label>
+      <textarea id="editSentence" style="width:100%;padding:12px;border-radius:10px;border:1.5px solid var(--border);font-size:14px;font-family:'Noto Serif JP',serif;margin-top:4px;resize:vertical;min-height:80px;box-sizing:border-box;"></textarea>
+    </div>
+    <div style="margin-bottom:16px;">
+      <label style="font-size:12px;color:var(--text-muted);font-weight:700;">正解（漢字）</label>
+      <input id="editAnswer" type="text" style="width:100%;padding:12px;border-radius:10px;border:1.5px solid var(--border);font-size:16px;font-family:'Noto Serif JP',serif;margin-top:4px;box-sizing:border-box;">
+    </div>
+    <div class="modal-btns">
+      <button class="btn-mid" onclick="closeEditModal()">キャンセル</button>
+      <button class="btn-big" style="flex:1;" onclick="saveEditModal()">💾 保存</button>
+    </div>
+  </div>
+</div>
+
 <!-- ━━━━━ SCHEDULE ━━━━━ -->
 <div id="schedule" class="screen">
   <div class="screen-header" style="max-width:440px;width:100%;">
@@ -1265,7 +1299,7 @@ textarea.manual-input::placeholder { color:var(--text-dim); }
     <p id="modalMsg"></p>
     <div class="modal-btns">
       <button class="btn-mid" onclick="closeModal()" id="modalCancel">戻る</button>
-      <button class="btn-danger" onclick="execModal()" id="modalOk">実行</button>
+      <button class="btn-danger" onclick="execModal()" id="modalOk">やめる</button>
     </div>
   </div>
 </div>
@@ -2849,6 +2883,7 @@ function showScreen(name){
   if(name==='schedule') buildSchedule();
   if(name==='tokkun') buildTokkunMenu();
   if(name==='ranking') buildRanking();
+  if(name==='editor') buildEditorScreen();
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -2873,31 +2908,19 @@ function confirmQuit(){
 let tokkunState = { selectedId: null, count: 10 };
 
 function buildTokkunMenu(){
-  const list = document.getElementById('tokkunGroupList');
-  list.innerHTML = '';
+  const sel = document.getElementById('tokkunGroupSelect');
+  if(!sel) return;
+  sel.innerHTML = '<option value="">範囲を選んでください</option>';
   ROUND_GROUPS.forEach(g => {
     const total = g.rounds.reduce((s,r) => s + (KANJI_ROUNDS[r]||[]).length, 0);
-    const div = document.createElement('div');
-    div.className = 'tok-group' + (tokkunState.selectedId===g.id ? ' selected' : '');
-    div.onclick = () => selectTokkunGroup(g.id);
-    div.innerHTML = `
-      <div>
-        <div class="tok-group-label">${g.label}</div>
-        <div class="tok-group-sub">${total}問収録</div>
-      </div>
-      <div class="tok-group-check">✓</div>`;
-    list.appendChild(div);
+    const opt = document.createElement('option');
+    opt.value = g.id;
+    opt.textContent = `${g.label}（${total}問）`;
+    if(tokkunState.selectedId === g.id) opt.selected = true;
+    sel.appendChild(opt);
   });
-  // 問題数ボタン初期状態
+  sel.onchange = () => { tokkunState.selectedId = sel.value || null; };
   setTokkunCount(tokkunState.count, false);
-}
-
-function selectTokkunGroup(id){
-  tokkunState.selectedId = id;
-  document.querySelectorAll('.tok-group').forEach(el => el.classList.remove('selected'));
-  const all = document.querySelectorAll('.tok-group');
-  const idx = ROUND_GROUPS.findIndex(g=>g.id===id);
-  if(idx>=0) all[idx].classList.add('selected');
 }
 
 function setTokkunCount(n, updateBtn=true){
@@ -2913,6 +2936,9 @@ async function startTokkunDrill(){
   if(Object.keys(KANJI_ROUNDS).length === 0){
     await loadKanjiRounds();
   }
+  // プルダウンから選択値を取得
+  const sel = document.getElementById('tokkunGroupSelect');
+  if(sel) tokkunState.selectedId = sel.value || null;
   if(!tokkunState.selectedId){
     alert('練習する範囲を選んでください。');
     return;
@@ -2951,6 +2977,105 @@ async function startTokkunDrill(){
   showScreen('drill');
   initCanvas();
   showQuestion();
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// EDITOR（問題編集）
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+let editTarget = null; // { source:'db'|'round', roundKey, idx, card }
+
+async function buildEditorScreen(){
+  if(Object.keys(KANJI_ROUNDS).length === 0) await loadKanjiRounds();
+
+  // フィルタープルダウン構築
+  const sel = document.getElementById('editorRoundFilter');
+  if(sel.options.length <= 1){
+    ROUND_GROUPS.forEach(g => {
+      const opt = document.createElement('option');
+      opt.value = g.id;
+      opt.textContent = g.label;
+      sel.appendChild(opt);
+    });
+  }
+  buildEditorList();
+}
+
+function buildEditorList(){
+  const groupId = document.getElementById('editorRoundFilter').value;
+  const keyword = document.getElementById('editorSearch').value.trim();
+  const list = document.getElementById('editorList');
+  list.innerHTML = '';
+
+  // 対象ラウンドを決定
+  let rounds = [];
+  if(groupId){
+    const g = ROUND_GROUPS.find(g=>g.id===groupId);
+    if(g) rounds = g.rounds;
+  } else {
+    rounds = Object.keys(KANJI_ROUNDS).map(Number);
+  }
+
+  let total = 0;
+  rounds.forEach(r => {
+    const qs = KANJI_ROUNDS[r] || [];
+    qs.forEach((q, idx) => {
+      if(keyword && !q.sentence.includes(keyword) && !q.answer.includes(keyword)) return;
+      total++;
+      const div = document.createElement('div');
+      div.style.cssText = 'background:var(--surface);border:1.5px solid var(--border);border-radius:14px;padding:14px 16px;display:flex;align-items:flex-start;gap:12px;';
+      div.innerHTML = `
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:11px;color:var(--text-muted);font-weight:700;margin-bottom:4px;">第${r}回 問${q.num}</div>
+          <div style="font-size:14px;font-family:'Noto Serif JP',serif;line-height:1.7;word-break:break-all;">${highlightKana(q.sentence)}</div>
+          <div style="margin-top:6px;font-size:15px;font-weight:800;color:var(--accent);font-family:'Noto Serif JP',serif;">→ ${q.answer}</div>
+        </div>
+        <button onclick="openEditModal('round',${r},${idx})" style="flex-shrink:0;padding:8px 14px;background:var(--surface2);border:1.5px solid var(--border);border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;color:var(--text);">編集</button>`;
+      list.appendChild(div);
+    });
+  });
+
+  document.getElementById('editorCount').textContent = `${total}問表示中`;
+}
+
+function highlightKana(sentence){
+  return sentence.replace(/[ァ-ヶー]+/g, m=>`<span style="color:var(--primary);font-weight:800;">${m}</span>`);
+}
+
+function openEditModal(source, roundKey, idx){
+  const q = KANJI_ROUNDS[roundKey][idx];
+  editTarget = { source, roundKey, idx };
+  document.getElementById('editSentence').value = q.sentence;
+  document.getElementById('editAnswer').value = q.answer;
+  document.getElementById('editModal').classList.add('open');
+}
+
+function closeEditModal(){
+  document.getElementById('editModal').classList.remove('open');
+  editTarget = null;
+}
+
+function saveEditModal(){
+  if(!editTarget) return;
+  const sentence = document.getElementById('editSentence').value.trim();
+  const answer = document.getElementById('editAnswer').value.trim();
+  if(!sentence || !answer){ alert('問題文と正解を入力してください。'); return; }
+
+  const oldSentence = KANJI_ROUNDS[editTarget.roundKey][editTarget.idx].sentence;
+
+  // KANJI_ROUNDSを直接更新
+  KANJI_ROUNDS[editTarget.roundKey][editTarget.idx].sentence = sentence;
+  KANJI_ROUNDS[editTarget.roundKey][editTarget.idx].answer = answer;
+
+  // DBにある同じ問題も更新
+  DB.cards.forEach(c => {
+    if(c.sentence === oldSentence){
+      c.sentence = sentence;
+      c.answer = answer;
+    }
+  });
+  saveDB();
+  closeEditModal();
+  buildEditorList();
 }
 
 function confirmReset(){
