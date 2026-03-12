@@ -2212,15 +2212,23 @@ async function loadDB(){
 
 // Supabaseへ進捗を保存（非同期・ノンブロッキング）
 async function saveDB(){
-  saveLocalCache();
+  try {
+    saveLocalCache();
+  } catch(e) {
+    console.warn('saveLocalCache error:', e);
+  }
   if(!currentUser) return;
-  await sb.from('progress').upsert({
-    user_id: currentUser.id,
-    cards: DB.cards,
-    total_correct: DB.totalCorrect,
-    current_station_idx: DB.currentStationIdx,
-    updated_at: new Date().toISOString(),
-  }, { onConflict: 'user_id' });
+  try {
+    await sb.from('progress').upsert({
+      user_id: currentUser.id,
+      cards: DB.cards,
+      total_correct: DB.totalCorrect,
+      current_station_idx: DB.currentStationIdx,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'user_id' });
+  } catch(e) {
+    console.warn('saveDB Supabase error:', e);
+  }
 }
 
 const EB_INTERVALS = [1,3,7,14,30,60,90];
@@ -2457,45 +2465,54 @@ function newCard(sentence, answer, t){
 // DRILL
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 async function startTodayDrill(){
-  // DBにカードがなければKANJI_ROUNDSから全問登録
-  if(DB.cards.length === 0){
-    const t = today();
-    Object.values(KANJI_ROUNDS).forEach(round => {
-      round.forEach(q => {
-        DB.cards.push(newCard(q.sentence, q.answer, t));
+  try {
+    // DBにカードがなければKANJI_ROUNDSから全問登録
+    if(DB.cards.length === 0){
+      const t = today();
+      Object.values(KANJI_ROUNDS).forEach(round => {
+        round.forEach(q => {
+          DB.cards.push(newCard(q.sentence, q.answer, t));
+        });
       });
-    });
-    await saveDB();
+      saveDB(); // awaitしない（バックグラウンド保存）
+    }
+    const t = today();
+    let queue = DB.cards.filter(c=>c.nextReview<=t);
+    if(queue.length===0){ alert('今日の問題はありません！\nよく頑張りました 🎉'); return; }
+    queue = shuffle(queue).slice(0,100);
+    session = {queue, idx:0, results:[], mode:'today'};
+    showScreen('drill');
+    initCanvas();
+    showQuestion();
+  } catch(e) {
+    console.error('startTodayDrill error:', e);
+    alert('エラーが発生しました: ' + e.message);
   }
-  const t = today();
-  let queue = DB.cards.filter(c=>c.nextReview<=t);
-  if(queue.length===0){ alert('今日の問題はありません！\nよく頑張りました 🎉'); return; }
-  queue = shuffle(queue).slice(0,100);
-  session = {queue, idx:0, results:[], mode:'today'};
-  showScreen('drill');
-  initCanvas();
-  showQuestion();
+}
 }
 
 function showQuestion(){
-  const card = session.queue[session.idx];
-  const total = session.queue.length;
-  const pct = (session.idx/total*100);
-  document.getElementById('drillProgress').style.width = pct+'%';
-  document.getElementById('drillNum').textContent = `${session.idx+1}/${total}`;
-  document.getElementById('qNum').textContent = `問題 ${session.idx+1}`;
-
-  const html = card.sentence.replace(/[ァ-ヶー]+/g, m=>`<span class="q-blank">${m}</span>`);
-  document.getElementById('qSentence').innerHTML = html;
-
-  clearCanvas();
-  document.getElementById('submitBtn').textContent = '答えを確認する →';
-  document.getElementById('submitBtn').disabled = false;
-  document.getElementById('submitBtn').classList.remove('hidden');
-  document.getElementById('answerReveal').classList.add('hidden');
-
-  // 現在地バー更新
-  updateDrillLocationBar();
+  try {
+    const card = session.queue[session.idx];
+    if(!card){ console.error('card is undefined, idx='+session.idx); return; }
+    const total = session.queue.length;
+    document.getElementById('drillProgress').style.width = (session.idx/total*100)+'%';
+    document.getElementById('drillNum').textContent = (session.idx+1)+'/'+total;
+    document.getElementById('qNum').textContent = '問題 '+(session.idx+1);
+    const rawHtml = card.sentence.replace(/[ァ-ヶー]+/g, function(m){
+      return '<span class="q-blank">'+m+'</span>';
+    });
+    document.getElementById('qSentence').innerHTML = rawHtml;
+    clearCanvas();
+    document.getElementById('submitBtn').textContent = '答えを確認する →';
+    document.getElementById('submitBtn').disabled = false;
+    document.getElementById('submitBtn').classList.remove('hidden');
+    document.getElementById('answerReveal').classList.add('hidden');
+    updateDrillLocationBar();
+  } catch(e) {
+    console.error('showQuestion error:', e);
+    document.getElementById('qSentence').textContent = 'エラー: '+e.message;
+  }
 }
 
 function updateDrillLocationBar(){
@@ -2903,7 +2920,7 @@ function getPos(e){
 }
 
 function clearCanvas(){
-  if(!ctx) return;
+  if(!canvas || !ctx) return;
   ctx.clearRect(0,0,canvas.width,canvas.height);
 }
 
@@ -3263,6 +3280,7 @@ async function buildRanking(){
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // アプリ起動：問題データとSupabase認証を並列初期化
 loadKanjiRounds();
+console.log('[漢字トレイン] 起動 KANJI_ROUNDS keys:', Object.keys(KANJI_ROUNDS).length, 'STATIONS:', STATIONS.length);
 
 sb.auth.onAuthStateChange(async (event, session_auth) => {
   if(session_auth && session_auth.user){
